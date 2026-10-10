@@ -1,0 +1,904 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ครอปบัตรประชาชน</title>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#f0f0ee;color:#1a1a18;min-height:100vh}
+.app{display:grid;grid-template-columns:300px 1fr;min-height:100vh}
+
+/* SIDEBAR */
+.sidebar{background:#fff;border-right:1px solid #e8e8e4;padding:1.25rem 1rem;display:flex;flex-direction:column;gap:1rem;overflow-y:auto}
+.logo{font-size:16px;font-weight:700}.logo span{color:#888;font-weight:400;font-size:12px;display:block;margin-top:2px}
+.sec-title{font-size:10px;font-weight:700;color:#aaa;text-transform:uppercase;letter-spacing:.07em;margin-bottom:7px}
+
+.drop-zone{border:1.5px dashed #ccc;border-radius:10px;padding:1.25rem 1rem;text-align:center;cursor:pointer;background:#fafaf8;transition:all .15s}
+.drop-zone:hover,.drop-zone.over{background:#eef4ff;border-color:#6a9cf8}
+.drop-icon{font-size:26px;display:block;margin-bottom:6px}
+.drop-title{font-size:13px;font-weight:500}.drop-sub{font-size:11px;color:#aaa;margin-top:2px}
+
+/* sliders */
+.ctrl-row{display:flex;align-items:center;gap:8px;margin-bottom:8px}
+.ctrl-label{font-size:12px;color:#555;min-width:60px}
+input[type=range]{flex:1;accent-color:#1a1a18;height:4px}
+.ctrl-val{font-size:12px;font-weight:600;min-width:34px;text-align:right;color:#333}
+.ctrl-row input[type=number]{flex:1;height:30px;border-radius:7px;border:1px solid #ddd;background:#fff;color:#1a1a18;padding:0 8px;font-size:12px;font-family:inherit}
+
+/* color mode buttons */
+.mode-btns{display:flex;gap:5px}
+.mode-btn{flex:1;padding:6px 3px;border:1.5px solid #e0e0dc;border-radius:7px;text-align:center;cursor:pointer;font-size:11px;font-weight:500;background:#fafaf8;transition:all .12s}
+.mode-btn.active{border-color:#1a1a18;background:#1a1a18;color:#fff}
+
+/* format */
+.fmt-btns{display:flex;gap:5px}
+.fmt-btn{flex:1;padding:7px 3px;border:1.5px solid #e0e0dc;border-radius:7px;text-align:center;cursor:pointer;font-size:12px;font-weight:600;background:#fafaf8;transition:all .12s}
+.fmt-btn.active{border-color:#1a1a18;background:#1a1a18;color:#fff}
+
+.btn-main{width:100%;padding:10px;border-radius:9px;border:none;background:#1a1a18;color:#fff;font-size:14px;font-weight:600;cursor:pointer;transition:opacity .15s;font-family:inherit}
+.btn-main:hover{opacity:.82}.btn-main:disabled{opacity:.35;cursor:not-allowed}
+.btn-sec{width:100%;padding:7px;border-radius:9px;border:1px solid #ddd;background:transparent;color:#666;font-size:12px;cursor:pointer;font-family:inherit;margin-top:5px}
+.btn-sec:hover{background:#f5f5f3}
+
+/* status pill */
+.status{font-size:11px;padding:4px 10px;border-radius:20px;display:inline-block;margin-top:4px}
+.status.ok{background:#edf9f1;color:#1d7a45}
+.status.warn{background:#fef9ec;color:#8a6a00}
+.status.info{background:#eef4ff;color:#2a5fc9}
+
+/* MAIN */
+.main{display:flex;flex-direction:column;align-items:center;justify-content:flex-start;padding:1.5rem;gap:1rem;overflow:auto}
+
+.editor-wrap{position:relative;display:inline-block;user-select:none}
+#editor-canvas{display:block;border-radius:6px;box-shadow:0 4px 20px rgba(0,0,0,.15);cursor:crosshair}
+#editor-canvas.moving{cursor:move}
+
+/* corner handles */
+.handle{position:absolute;width:18px;height:18px;background:#fff;border:2.5px solid #6a9cf8;border-radius:3px;box-shadow:0 1px 4px rgba(0,0,0,.3);cursor:pointer;z-index:10;transform:translate(-50%,-50%)}
+
+.preview-label{font-size:11px;color:#888;text-align:center}
+.preview-row{display:flex;gap:1rem;align-items:flex-start;flex-wrap:wrap;justify-content:center}
+.preview-box{text-align:center}
+.preview-box canvas{border-radius:4px;box-shadow:0 2px 10px rgba(0,0,0,.12);display:block}
+.preview-box .lbl{font-size:10px;color:#999;margin-top:4px}
+
+.page-preview{background:#fff;box-shadow:0 4px 20px rgba(0,0,0,.12);display:block}
+
+select{height:30px;border-radius:7px;border:1px solid #ddd;background:#fff;color:#1a1a18;padding:0 8px;font-size:12px;font-family:inherit;width:100%}
+.opt-row{display:flex;gap:8px;align-items:center;margin-bottom:8px}
+.opt-row label{font-size:12px;color:#555;min-width:55px}
+.opt-row select,.opt-row input[type=number]{flex:1}
+</style>
+</head>
+<body>
+<div class="app">
+
+<!-- ═══════ SIDEBAR ═══════ -->
+<aside class="sidebar">
+  <div>
+    <div class="logo">🪪 ครอปบัตรประชาชน<span>ID Card Crop & Print</span></div>
+  </div>
+
+  <!-- 1. Upload -->
+  <div>
+    <div class="sec-title">1. เลือกรูปภาพ</div>
+    <div class="drop-zone" id="dz" onclick="document.getElementById('fi').click()">
+      <span class="drop-icon">📷</span>
+      <div class="drop-title">วางรูปหรือคลิกเลือก</div>
+      <div class="drop-sub">JPG · PNG · HEIC</div>
+    </div>
+    <input type="file" id="fi" accept="image/*,.heic,.heif" style="display:none">
+    <div id="ai-status" style="margin-top:6px;display:none">
+      <span class="status info" id="ai-msg">🔍 กำลังตรวจหาขอบบัตร...</span>
+    </div>
+  </div>
+
+  <!-- 2. Corner fine-tune -->
+  <div id="adjust-section" style="display:none">
+    <div class="sec-title">2. ปรับมุม / หมุน</div>
+    <div class="ctrl-row">
+      <span class="ctrl-label">หมุน</span>
+      <input type="range" id="rot" min="-45" max="45" value="0" step="0.1" oninput="updateRotVal();rerender()">
+      <span class="ctrl-val" id="rot-val">0°</span>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:5px;margin-bottom:6px;font-size:11px;color:#666;">
+      <div>มุมซ้ายบน</div><div>มุมขวาบน</div>
+    </div>
+    <div id="handles-info" style="font-size:11px;color:#aaa;">ลากจุดสีน้ำเงินบนรูปเพื่อปรับขอบบัตร</div>
+    <button class="btn-sec" id="reset-pts-btn" onclick="resetToAI()" style="margin-top:6px;">↩ รีเซ็ตกลับจุด AI</button>
+  </div>
+
+  <!-- 3. Color adjust -->
+  <div id="color-section" style="display:none">
+    <div class="sec-title">3. ปรับภาพ</div>
+    <div class="ctrl-row">
+      <span class="ctrl-label">ความสว่าง</span>
+      <input type="range" id="brightness" min="-100" max="100" value="0" oninput="document.getElementById('bv').textContent=this.value;rerender()">
+      <span class="ctrl-val" id="bv">0</span>
+    </div>
+    <div class="ctrl-row">
+      <span class="ctrl-label">คอนทราส</span>
+      <input type="range" id="contrast" min="-100" max="100" value="0" oninput="document.getElementById('cv2').textContent=this.value;rerender()">
+      <span class="ctrl-val" id="cv2">0</span>
+    </div>
+    <div class="ctrl-row">
+      <span class="ctrl-label">ความอิ่มสี</span>
+      <input type="range" id="saturation" min="-100" max="100" value="0" oninput="document.getElementById('sv').textContent=this.value;rerender()">
+      <span class="ctrl-val" id="sv">0</span>
+    </div>
+    <div style="margin-bottom:6px;font-size:11px;color:#555;">โทนสี</div>
+    <div class="mode-btns">
+      <div class="mode-btn active" data-m="color" onclick="setMode('color')">สี</div>
+      <div class="mode-btn" data-m="gray" onclick="setMode('gray')">ขาว-เทา</div>
+      <div class="mode-btn" data-m="bw" onclick="setMode('bw')">ขาว-ดำ</div>
+    </div>
+    <div class="ctrl-row" id="bw-thresh-row" style="margin-top:8px;display:none">
+      <span class="ctrl-label">เกณฑ์</span>
+      <input type="range" id="bw-thresh" min="50" max="200" value="128" oninput="document.getElementById('bwv').textContent=this.value;rerender()">
+      <span class="ctrl-val" id="bwv">128</span>
+    </div>
+  </div>
+
+  <!-- 4. Page layout -->
+  <div id="layout-section" style="display:none">
+    <div class="sec-title">4. หน้ากระดาษ</div>
+    <div class="opt-row">
+      <label>ขนาด</label>
+      <select id="pg-size" onchange="rerender()">
+        <option value="a4">A4 (210×297 mm)</option>
+        <option value="letter">Letter (216×279 mm)</option>
+        <option value="a3">A3 (297×420 mm)</option>
+      </select>
+    </div>
+    <div class="opt-row">
+      <label>แนว</label>
+      <select id="pg-ori" onchange="rerender()">
+        <option value="portrait">แนวตั้ง</option>
+        <option value="landscape">แนวนอน</option>
+      </select>
+    </div>
+    <div style="margin-bottom:6px">
+      <div class="ctrl-row">
+        <span class="ctrl-label">สีพื้นหลัง</span>
+        <input type="color" id="bg-col" value="#ffffff" oninput="rerender()" style="flex:none;width:36px;height:28px;border-radius:6px;border:1px solid #ddd;cursor:pointer;padding:2px">
+      </div>
+    </div>
+  </div>
+
+  <!-- 5. Output -->
+  <div id="export-section" style="display:none">
+    <div class="sec-title">5. บันทึกเป็น</div>
+    <div class="fmt-btns" style="margin-bottom:8px">
+      <div class="fmt-btn active" data-f="jpeg" onclick="setFmt('jpeg')">JPG</div>
+      <div class="fmt-btn" data-f="png" onclick="setFmt('png')">PNG</div>
+      <div class="fmt-btn" data-f="docx" onclick="setFmt('docx')">Word</div>
+    </div>
+    <div class="ctrl-row" id="jpg-q-row">
+      <span class="ctrl-label">คุณภาพ</span>
+      <input type="range" id="jpg-q" min="60" max="100" value="94" oninput="document.getElementById('jqv').textContent=this.value+'%'">
+      <span class="ctrl-val" id="jqv">94%</span>
+    </div>
+  </div>
+
+  <div style="margin-top:auto;display:flex;flex-direction:column;gap:4px" id="btn-area">
+    <button class="btn-main" id="export-btn" onclick="doExport()" disabled>⬇️ บันทึกไฟล์</button>
+    <button class="btn-sec" onclick="resetAll()">🗑️ เริ่มใหม่</button>
+  </div>
+
+  <p style="font-size:10px;color:#ccc;text-align:center">ประมวลผลในเบราว์เซอร์ ไม่มีการอัปโหลด</p>
+</aside>
+
+<!-- ═══════ MAIN ═══════ -->
+<main class="main" id="main-area">
+  <div style="color:#bbb;font-size:13px;text-align:center;margin-top:4rem">
+    <div style="font-size:40px;margin-bottom:12px">🪪</div>
+    อัปโหลดรูปบัตรประชาชนเพื่อเริ่มต้น
+  </div>
+
+  <div id="editor-area" style="display:none;flex-direction:column;align-items:center;gap:1rem;width:100%">
+    <div class="preview-label">ลากจุด 🔵 เพื่อปรับขอบบัตร · ลากกลางกรอบเพื่อเลื่อน</div>
+    <div class="editor-wrap" id="editor-wrap">
+      <canvas id="editor-canvas"></canvas>
+      <div class="handle" id="h0" style="border-color:#ff4444"></div>
+      <div class="handle" id="h1" style="border-color:#ff4444"></div>
+      <div class="handle" id="h2" style="border-color:#4488ff"></div>
+      <div class="handle" id="h3" style="border-color:#4488ff"></div>
+    </div>
+
+    <div class="preview-row">
+      <div class="preview-box">
+        <canvas id="card-canvas"></canvas>
+        <div class="lbl">บัตร (85.6×54 mm)</div>
+      </div>
+      <div class="preview-box">
+        <canvas id="page-canvas"></canvas>
+        <div class="lbl">หน้ากระดาษ (ตัวอย่าง)</div>
+      </div>
+    </div>
+  </div>
+</main>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<script>
+/* ══════════════════════════════════════════
+   CONSTANTS
+══════════════════════════════════════════ */
+const CARD_W_MM = 85.6, CARD_H_MM = 54; // CR80
+const MM_PER_INCH = 25.4;
+const EXPORT_DPI = 300;
+const PREVIEW_DPI = 150;
+const PAGE_MM = { a4:[210,297], letter:[215.9,279.4], a3:[297,420] };
+
+function mm2px(mm, dpi){ return Math.round(mm / MM_PER_INCH * dpi); }
+
+/* ══════════════════════════════════════════
+   STATE
+══════════════════════════════════════════ */
+let srcImg = null;
+let displayScale = 1;        // srcImg → editor-canvas scale
+let corners = [];            // 4 pts in srcImg coords [TL,TR,BR,BL]
+let aiCorners = [];          // last AI detection result
+let colorMode = 'color';
+let outFmt = 'jpeg';
+let dragging = null;         // {type:'corner'|'quad', ci, ox, oy}
+
+/* ══════════════════════════════════════════
+   FILE LOAD
+══════════════════════════════════════════ */
+const dz = document.getElementById('dz');
+dz.addEventListener('dragover', e=>{ e.preventDefault(); dz.classList.add('over'); });
+dz.addEventListener('dragleave', ()=>dz.classList.remove('over'));
+dz.addEventListener('drop', e=>{ e.preventDefault(); dz.classList.remove('over'); loadFile(e.dataTransfer.files[0]); });
+document.getElementById('fi').addEventListener('change', e=>loadFile(e.target.files[0]));
+
+function loadFile(f){
+  if(!f) return;
+  const reader = new FileReader();
+  reader.onload = ev => {
+    const img = new Image();
+    img.onload = () => { srcImg = img; onImageLoaded(); };
+    img.src = ev.target.result;
+  };
+  reader.readAsDataURL(f);
+}
+
+function onImageLoaded(){
+  document.getElementById('main-area').innerHTML = '';
+  document.getElementById('main-area').appendChild(buildEditorArea());
+
+  // compute display scale
+  const maxW = Math.min(window.innerWidth - 340, 900);
+  const maxH = window.innerHeight - 100;
+  displayScale = Math.min(1, maxW / srcImg.naturalWidth, maxH / srcImg.naturalHeight);
+
+  const ec = document.getElementById('editor-canvas');
+  ec.width  = Math.round(srcImg.naturalWidth  * displayScale);
+  ec.height = Math.round(srcImg.naturalHeight * displayScale);
+
+  showSections();
+  document.getElementById('ai-status').style.display = 'block';
+  document.getElementById('ai-msg').textContent = '🔍 กำลังตรวจหาขอบบัตร...';
+
+  setTimeout(()=>{
+    aiDetect();
+    bindHandles();
+    bindQuadDrag();
+    rerender();
+    document.getElementById('export-btn').disabled = false;
+    document.getElementById('ai-status').style.display = 'none';
+  }, 80);
+}
+
+function buildEditorArea(){
+  const wrap = document.createElement('div');
+  wrap.id = 'editor-area';
+  wrap.style.cssText = 'display:flex;flex-direction:column;align-items:center;gap:1rem;width:100%';
+  wrap.innerHTML = `
+    <div style="font-size:11px;color:#888;text-align:center">ลากจุด 🔵/🔴 เพื่อปรับขอบบัตร · ลากกลางกรอบเพื่อเลื่อน</div>
+    <div class="editor-wrap" id="editor-wrap">
+      <canvas id="editor-canvas"></canvas>
+      <div class="handle" id="h0" style="border-color:#ff4444"></div>
+      <div class="handle" id="h1" style="border-color:#ff4444"></div>
+      <div class="handle" id="h2" style="border-color:#4488ff"></div>
+      <div class="handle" id="h3" style="border-color:#4488ff"></div>
+    </div>
+    <div class="preview-row">
+      <div class="preview-box">
+        <canvas id="card-canvas"></canvas>
+        <div class="lbl">บัตร (85.6×54 mm)</div>
+      </div>
+      <div class="preview-box">
+        <canvas id="page-canvas"></canvas>
+        <div class="lbl">หน้ากระดาษ (ตัวอย่าง)</div>
+      </div>
+    </div>`;
+  return wrap;
+}
+
+function showSections(){
+  ['adjust-section','color-section','layout-section','export-section'].forEach(id=>{
+    document.getElementById(id).style.display='block';
+  });
+}
+
+/* ══════════════════════════════════════════
+   AI DETECTION  (edge-based heuristic)
+   Finds the largest axis-aligned light rectangle
+   in the image that has a card-like aspect ratio.
+══════════════════════════════════════════ */
+function aiDetect(){
+  const img = srcImg;
+  const sw = img.naturalWidth, sh = img.naturalHeight;
+
+  // Downsample for speed
+  const DS = 4;
+  const dw = Math.round(sw/DS), dh = Math.round(sh/DS);
+  const offCv = document.createElement('canvas');
+  offCv.width = dw; offCv.height = dh;
+  const ctx = offCv.getContext('2d');
+  ctx.drawImage(img, 0, 0, dw, dh);
+  const pix = ctx.getImageData(0,0,dw,dh).data;
+
+  // Convert to grayscale & compute simple Sobel magnitude
+  const gray = new Uint8Array(dw*dh);
+  for(let i=0;i<dw*dh;i++){
+    const o=i*4;
+    gray[i] = Math.round(0.299*pix[o] + 0.587*pix[o+1] + 0.114*pix[o+2]);
+  }
+  function g(x,y){ x=Math.max(0,Math.min(dw-1,x)); y=Math.max(0,Math.min(dh-1,y)); return gray[y*dw+x]; }
+  const edgeH = new Uint8Array(dw*dh);
+  const edgeV = new Uint8Array(dw*dh);
+  for(let y=0;y<dh;y++) for(let x=0;x<dw;x++){
+    const sx = -g(x-1,y-1)-2*g(x-1,y)-g(x-1,y+1)+g(x+1,y-1)+2*g(x+1,y)+g(x+1,y+1);
+    const sy = -g(x-1,y-1)-2*g(x,y-1)-g(x+1,y-1)+g(x-1,y+1)+2*g(x,y+1)+g(x+1,y+1);
+    const mag = Math.sqrt(sx*sx+sy*sy);
+    edgeH[y*dw+x] = mag>40 ? 255 : 0;
+    edgeV[y*dw+x] = mag>40 ? 255 : 0;
+  }
+
+  // Project: find rows/cols with most edge density
+  const rowEdge = new Float32Array(dh);
+  const colEdge = new Float32Array(dw);
+  for(let y=0;y<dh;y++) for(let x=0;x<dw;x++){ rowEdge[y]+=edgeH[y*dw+x]; colEdge[x]+=edgeV[y*dw+x]; }
+
+  // Find top/bottom and left/right margins with high edge density
+  function findBoundary(arr, len, fromEnd){
+    const thresh = Math.max(...arr) * 0.15;
+    if(fromEnd){ for(let i=len-1;i>=0;i--) if(arr[i]>thresh) return i; return len-1; }
+    else        { for(let i=0;i<len;i++)   if(arr[i]>thresh) return i; return 0; }
+  }
+
+  let top   = findBoundary(rowEdge, dh, false);
+  let bot   = findBoundary(rowEdge, dh, true);
+  let left  = findBoundary(colEdge, dw, false);
+  let right = findBoundary(colEdge, dw, true);
+
+  // Add small padding
+  const padH = Math.round(dh * 0.01), padV = Math.round(dw * 0.01);
+  top   = Math.max(0,       top   - padH);
+  bot   = Math.min(dh-1,    bot   + padH);
+  left  = Math.max(0,       left  - padV);
+  right = Math.min(dw-1,    right + padV);
+
+  // Validate aspect ratio — should be close to CR80 (85.6/54 ≈ 1.585)
+  const detW = (right-left)*DS, detH = (bot-top)*DS;
+  const detRatio = detW / detH;
+  const cardRatio = CARD_W_MM / CARD_H_MM;
+  const ratioOk = detRatio > 1.1 && detRatio < 2.2;
+  const sizeOk  = detW > sw*0.2 && detH > sh*0.15;
+
+  if(ratioOk && sizeOk){
+    corners = [
+      [left*DS,  top*DS],
+      [right*DS, top*DS],
+      [right*DS, bot*DS],
+      [left*DS,  bot*DS],
+    ];
+    aiCorners = corners.map(p=>[...p]);
+    showAiStatus('✅ พบขอบบัตรแล้ว ปรับได้ที่จุดสีน้ำเงิน', 'ok');
+  } else {
+    // Fallback: center crop with card ratio
+    const margin = 0.08;
+    const cx = sw/2, cy = sh/2;
+    let cw, ch;
+    if(sw/sh > cardRatio){ ch = sh*(1-margin*2); cw = ch*cardRatio; }
+    else                  { cw = sw*(1-margin*2); ch = cw/cardRatio; }
+    corners = [
+      [cx-cw/2, cy-ch/2],
+      [cx+cw/2, cy-ch/2],
+      [cx+cw/2, cy+ch/2],
+      [cx-cw/2, cy+ch/2],
+    ];
+    aiCorners = corners.map(p=>[...p]);
+    showAiStatus('⚠️ ไม่พบขอบชัดเจน กรุณาปรับจุดสีน้ำเงินเอง', 'warn');
+  }
+
+  positionHandles();
+}
+
+function showAiStatus(msg, type){
+  const el = document.getElementById('ai-status');
+  const msg_el = document.getElementById('ai-msg');
+  el.style.display='block';
+  msg_el.className = `status ${type}`;
+  msg_el.textContent = msg;
+}
+
+function resetToAI(){
+  corners = aiCorners.map(p=>[...p]);
+  document.getElementById('rot').value = 0;
+  document.getElementById('rot-val').textContent = '0°';
+  positionHandles();
+  rerender();
+}
+
+/* ══════════════════════════════════════════
+   HANDLE POSITIONING
+══════════════════════════════════════════ */
+function positionHandles(){
+  corners.forEach((pt, i)=>{
+    const h = document.getElementById(`h${i}`);
+    if(!h) return;
+    h.style.left = Math.round(pt[0]*displayScale) + 'px';
+    h.style.top  = Math.round(pt[1]*displayScale) + 'px';
+  });
+}
+
+function bindHandles(){
+  [0,1,2,3].forEach(i=>{
+    const h = document.getElementById(`h${i}`);
+    if(!h) return;
+    h.addEventListener('mousedown', e=>{
+      e.preventDefault(); e.stopPropagation();
+      dragging = { type:'corner', ci:i };
+    });
+    h.addEventListener('touchstart', e=>{
+      e.preventDefault(); e.stopPropagation();
+      dragging = { type:'corner', ci:i };
+    }, { passive:false });
+  });
+
+  window.addEventListener('mousemove', onPointerMove);
+  window.addEventListener('touchmove', e=>onPointerMove(e.touches[0]), { passive:false });
+  window.addEventListener('mouseup',   ()=>dragging=null);
+  window.addEventListener('touchend',  ()=>dragging=null);
+}
+
+function bindQuadDrag(){
+  const ec = document.getElementById('editor-canvas');
+  ec.addEventListener('mousedown', e=>{
+    if(dragging) return;
+    const {x,y} = canvasXY(e);
+    if(insideQuad(x/displayScale, y/displayScale)){
+      dragging = { type:'quad', ox:x, oy:y, startCorners:corners.map(p=>[...p]) };
+    }
+  });
+  ec.addEventListener('touchstart', e=>{
+    if(dragging) return;
+    const t = e.touches[0];
+    const {x,y} = canvasXY(t);
+    if(insideQuad(x/displayScale, y/displayScale)){
+      dragging = { type:'quad', ox:x, oy:y, startCorners:corners.map(p=>[...p]) };
+    }
+  },{ passive:false });
+}
+
+function canvasXY(e){
+  const ec = document.getElementById('editor-canvas');
+  const r = ec.getBoundingClientRect();
+  return { x: e.clientX - r.left, y: e.clientY - r.top };
+}
+
+function onPointerMove(e){
+  if(!dragging) return;
+  const ec = document.getElementById('editor-canvas');
+  if(!ec) return;
+  const r = ec.getBoundingClientRect();
+  const cx = e.clientX - r.left;
+  const cy = e.clientY - r.top;
+
+  if(dragging.type === 'corner'){
+    const si = dragging.ci;
+    corners[si][0] = Math.max(0, Math.min(srcImg.naturalWidth,  cx/displayScale));
+    corners[si][1] = Math.max(0, Math.min(srcImg.naturalHeight, cy/displayScale));
+  } else if(dragging.type === 'quad'){
+    const dx = (cx - dragging.ox)/displayScale;
+    const dy = (cy - dragging.oy)/displayScale;
+    corners = dragging.startCorners.map(p=>[p[0]+dx, p[1]+dy]);
+  }
+  positionHandles();
+  rerender();
+}
+
+function insideQuad(px, py){
+  // Simple point-in-polygon using cross products
+  const pts = corners;
+  let inside = false;
+  for(let i=0, j=pts.length-1; i<pts.length; j=i++){
+    const xi=pts[i][0], yi=pts[i][1], xj=pts[j][0], yj=pts[j][1];
+    if(((yi>py) !== (yj>py)) && (px < (xj-xi)*(py-yi)/(yj-yi)+xi)) inside=!inside;
+  }
+  return inside;
+}
+
+/* ══════════════════════════════════════════
+   PERSPECTIVE TRANSFORM  (4-pt → rectangle)
+══════════════════════════════════════════ */
+function perspectiveWarp(srcCanvas, srcPts, dstW, dstH){
+  // srcPts: [TL, TR, BR, BL] in srcCanvas space
+  const dst = document.createElement('canvas');
+  dst.width = dstW; dst.height = dstH;
+  const ctx = dst.getContext('2d');
+
+  // We compute a homography from srcPts → [0,0,dstW,dstH]
+  // using a scanline approach: for each dst pixel, find src pixel
+  const [TL,TR,BR,BL] = srcPts;
+  const sCtx = srcCanvas.getContext('2d');
+  const sData = sCtx.getImageData(0,0,srcCanvas.width,srcCanvas.height);
+  const dData = ctx.createImageData(dstW, dstH);
+
+  const sw = srcCanvas.width, sh = srcCanvas.height;
+
+  function lerp2(a,b,t){ return [a[0]+(b[0]-a[0])*t, a[1]+(b[1]-a[1])*t]; }
+
+  for(let y=0;y<dstH;y++){
+    const ty = y/dstH;
+    const left  = lerp2(TL, BL, ty);
+    const right = lerp2(TR, BR, ty);
+    for(let x=0;x<dstW;x++){
+      const tx = x/dstW;
+      const sx = left[0]+(right[0]-left[0])*tx;
+      const sy = left[1]+(right[1]-left[1])*ty;
+      const ix = Math.round(sx), iy = Math.round(sy);
+      if(ix<0||ix>=sw||iy<0||iy>=sh) continue;
+      const si = (iy*sw+ix)*4;
+      const di = (y*dstW+x)*4;
+      dData.data[di]   = sData.data[si];
+      dData.data[di+1] = sData.data[si+1];
+      dData.data[di+2] = sData.data[si+2];
+      dData.data[di+3] = 255;
+    }
+  }
+  ctx.putImageData(dData, 0, 0);
+  return dst;
+}
+
+/* ══════════════════════════════════════════
+   COLOR PROCESSING
+══════════════════════════════════════════ */
+function applyColorFx(canvas){
+  const ctx = canvas.getContext('2d');
+  const iData = ctx.getImageData(0,0,canvas.width,canvas.height);
+  const d = iData.data;
+  const brightness = parseInt(document.getElementById('brightness').value);
+  const contrast   = parseInt(document.getElementById('contrast').value);
+  const saturation = parseInt(document.getElementById('saturation').value);
+  const bwThresh   = parseInt(document.getElementById('bw-thresh').value);
+
+  const contrastF = (259*(contrast+255))/(255*(259-contrast));
+
+  for(let i=0;i<d.length;i+=4){
+    let r=d[i],g=d[i+1],b=d[i+2];
+    // brightness
+    r+=brightness; g+=brightness; b+=brightness;
+    // contrast
+    r = contrastF*(r-128)+128;
+    g = contrastF*(g-128)+128;
+    b = contrastF*(b-128)+128;
+    // clamp
+    r=Math.max(0,Math.min(255,r));
+    g=Math.max(0,Math.min(255,g));
+    b=Math.max(0,Math.min(255,b));
+    // saturation
+    if(saturation !== 0){
+      const gray = 0.299*r+0.587*g+0.114*b;
+      const sf = (saturation+100)/100;
+      r = gray+(r-gray)*sf;
+      g = gray+(g-gray)*sf;
+      b = gray+(b-gray)*sf;
+      r=Math.max(0,Math.min(255,r));
+      g=Math.max(0,Math.min(255,g));
+      b=Math.max(0,Math.min(255,b));
+    }
+    // color mode
+    if(colorMode==='gray'||colorMode==='bw'){
+      const lum = 0.299*r+0.587*g+0.114*b;
+      if(colorMode==='bw'){
+        const v = lum>bwThresh ? 255 : 0;
+        r=g=b=v;
+      } else { r=g=b=lum; }
+    }
+    d[i]=r; d[i+1]=g; d[i+2]=b;
+  }
+  ctx.putImageData(iData,0,0);
+  return canvas;
+}
+
+/* ══════════════════════════════════════════
+   RENDER
+══════════════════════════════════════════ */
+function getRotatedCorners(){
+  // Apply rotation around centroid
+  const rot = parseFloat(document.getElementById('rot').value) * Math.PI / 180;
+  const cx = corners.reduce((s,p)=>s+p[0],0)/4;
+  const cy = corners.reduce((s,p)=>s+p[1],0)/4;
+  return corners.map(([x,y])=>{
+    const dx=x-cx, dy=y-cy;
+    return [cx+dx*Math.cos(rot)-dy*Math.sin(rot),
+            cy+dx*Math.sin(rot)+dy*Math.cos(rot)];
+  });
+}
+
+let renderTimer = null;
+function rerender(){
+  clearTimeout(renderTimer);
+  renderTimer = setTimeout(_rerender, 16);
+}
+
+function _rerender(){
+  if(!srcImg || corners.length<4) return;
+
+  // ── Editor canvas ──
+  const ec = document.getElementById('editor-canvas');
+  if(!ec) return;
+  const ectx = ec.getContext('2d');
+  ectx.clearRect(0,0,ec.width,ec.height);
+  ectx.drawImage(srcImg,0,0,ec.width,ec.height);
+
+  const rPts = getRotatedCorners().map(([x,y])=>[x*displayScale, y*displayScale]);
+
+  // Dim outside quad
+  ectx.save();
+  ectx.fillStyle = 'rgba(0,0,0,0.45)';
+  ectx.fillRect(0,0,ec.width,ec.height);
+  ectx.globalCompositeOperation='destination-out';
+  ectx.beginPath();
+  ectx.moveTo(rPts[0][0],rPts[0][1]);
+  rPts.forEach(([x,y])=>ectx.lineTo(x,y));
+  ectx.closePath();
+  ectx.fill();
+  ectx.restore();
+
+  // Draw border
+  ectx.save();
+  ectx.strokeStyle='#6a9cf8';
+  ectx.lineWidth=2;
+  ectx.setLineDash([6,4]);
+  ectx.beginPath();
+  ectx.moveTo(rPts[0][0],rPts[0][1]);
+  rPts.forEach(([x,y])=>ectx.lineTo(x,y));
+  ectx.closePath();
+  ectx.stroke();
+  ectx.restore();
+
+  // ── Warp card ──
+  const rPtsSrc = getRotatedCorners();
+  const CARD_PX_W = mm2px(CARD_W_MM, PREVIEW_DPI);
+  const CARD_PX_H = mm2px(CARD_H_MM, PREVIEW_DPI);
+
+  // Build full-res source canvas from srcImg
+  const srcCv = document.createElement('canvas');
+  srcCv.width=srcImg.naturalWidth; srcCv.height=srcImg.naturalHeight;
+  srcCv.getContext('2d').drawImage(srcImg,0,0);
+
+  const warped = perspectiveWarp(srcCv, rPtsSrc, CARD_PX_W, CARD_PX_H);
+
+  // Clone for color fx
+  const fxCv = document.createElement('canvas');
+  fxCv.width=CARD_PX_W; fxCv.height=CARD_PX_H;
+  fxCv.getContext('2d').drawImage(warped,0,0);
+  applyColorFx(fxCv);
+
+  // Show card preview
+  const cc = document.getElementById('card-canvas');
+  if(cc){
+    const PREV_CARD_W = Math.round(CARD_W_MM * 3.78); // ~96dpi preview
+    const PREV_CARD_H = Math.round(CARD_H_MM * 3.78);
+    cc.width=PREV_CARD_W; cc.height=PREV_CARD_H;
+    cc.getContext('2d').drawImage(fxCv,0,0,PREV_CARD_W,PREV_CARD_H);
+  }
+
+  // ── Page preview ──
+  renderPagePreview(fxCv);
+}
+
+function renderPagePreview(cardCv){
+  const pc = document.getElementById('page-canvas');
+  if(!pc) return;
+  const pgKey = document.getElementById('pg-size').value;
+  const ori   = document.getElementById('pg-ori').value;
+  const bg    = document.getElementById('bg-col').value;
+  let [pmm_w, pmm_h] = PAGE_MM[pgKey]||PAGE_MM.a4;
+  if(ori==='landscape') [pmm_w,pmm_h]=[pmm_h,pmm_w];
+
+  const SCALE = 1.5; // px per mm for page preview (~57 dpi)
+  const pw = Math.round(pmm_w*SCALE);
+  const ph = Math.round(pmm_h*SCALE);
+  pc.width=pw; pc.height=ph;
+  const pctx=pc.getContext('2d');
+  pctx.fillStyle=bg;
+  pctx.fillRect(0,0,pw,ph);
+
+  // Draw card centered
+  const cw = Math.round(CARD_W_MM*SCALE);
+  const ch = Math.round(CARD_H_MM*SCALE);
+  const cx = Math.round((pw-cw)/2);
+  const cy = Math.round((ph-ch)/2);
+  pctx.drawImage(cardCv, cx, cy, cw, ch);
+
+  // ruler marks
+  pctx.strokeStyle='rgba(100,150,255,0.3)';
+  pctx.setLineDash([2,4]);
+  pctx.lineWidth=1;
+  pctx.beginPath();
+  pctx.moveTo(cx,0); pctx.lineTo(cx,ph);
+  pctx.moveTo(cx+cw,0); pctx.lineTo(cx+cw,ph);
+  pctx.moveTo(0,cy); pctx.lineTo(pw,cy);
+  pctx.moveTo(0,cy+ch); pctx.lineTo(pw,cy+ch);
+  pctx.stroke();
+}
+
+/* ══════════════════════════════════════════
+   CONTROLS
+══════════════════════════════════════════ */
+function updateRotVal(){
+  document.getElementById('rot-val').textContent = parseFloat(document.getElementById('rot').value).toFixed(1)+'°';
+}
+function setMode(m){
+  colorMode=m;
+  document.querySelectorAll('.mode-btn').forEach(el=>el.classList.toggle('active',el.dataset.m===m));
+  document.getElementById('bw-thresh-row').style.display = m==='bw'?'flex':'none';
+  rerender();
+}
+function setFmt(f){
+  outFmt=f;
+  document.querySelectorAll('.fmt-btn').forEach(el=>el.classList.toggle('active',el.dataset.f===f));
+  document.getElementById('jpg-q-row').style.display = f==='jpeg'?'flex':'none';
+}
+document.getElementById('pg-size').addEventListener('change',rerender);
+document.getElementById('pg-ori').addEventListener('change',rerender);
+document.getElementById('bg-col').addEventListener('input',rerender);
+
+/* ══════════════════════════════════════════
+   EXPORT
+══════════════════════════════════════════ */
+async function doExport(){
+  if(!srcImg||corners.length<4) return;
+  const btn=document.getElementById('export-btn');
+  btn.disabled=true; btn.textContent='⏳ กำลังสร้าง...';
+
+  try {
+    const rPts = getRotatedCorners();
+    const CARD_PX_W = mm2px(CARD_W_MM, EXPORT_DPI);
+    const CARD_PX_H = mm2px(CARD_H_MM, EXPORT_DPI);
+
+    const srcCv = document.createElement('canvas');
+    srcCv.width=srcImg.naturalWidth; srcCv.height=srcImg.naturalHeight;
+    srcCv.getContext('2d').drawImage(srcImg,0,0);
+
+    const warped = perspectiveWarp(srcCv, rPts, CARD_PX_W, CARD_PX_H);
+    const fxCv = document.createElement('canvas');
+    fxCv.width=CARD_PX_W; fxCv.height=CARD_PX_H;
+    fxCv.getContext('2d').drawImage(warped,0,0);
+    applyColorFx(fxCv);
+
+    if(outFmt==='docx'){
+      await exportDocx(fxCv);
+    } else {
+      // render on page
+      const pageCv = buildPageCanvas(fxCv, EXPORT_DPI);
+      const mime = outFmt==='png'?'image/png':'image/jpeg';
+      const q = parseInt(document.getElementById('jpg-q').value)/100;
+      const ext = outFmt==='png'?'png':'jpg';
+      pageCv.toBlob(blob=>dlBlob(blob,`id-card.${ext}`), mime, q);
+    }
+  } finally {
+    btn.disabled=false; btn.textContent='⬇️ บันทึกไฟล์';
+  }
+}
+
+function buildPageCanvas(cardCv, dpi){
+  const pgKey = document.getElementById('pg-size').value;
+  const ori   = document.getElementById('pg-ori').value;
+  const bg    = document.getElementById('bg-col').value;
+  let [pmm_w,pmm_h] = PAGE_MM[pgKey]||PAGE_MM.a4;
+  if(ori==='landscape')[pmm_w,pmm_h]=[pmm_h,pmm_w];
+  const pw=mm2px(pmm_w,dpi), ph=mm2px(pmm_h,dpi);
+  const cv=document.createElement('canvas');
+  cv.width=pw; cv.height=ph;
+  const ctx=cv.getContext('2d');
+  ctx.fillStyle=bg;
+  ctx.fillRect(0,0,pw,ph);
+  const cw=cardCv.width, ch=cardCv.height;
+  ctx.drawImage(cardCv, Math.round((pw-cw)/2), Math.round((ph-ch)/2));
+  return cv;
+}
+
+async function exportDocx(cardCv){
+  const pageCv = buildPageCanvas(cardCv, 200);
+  const b64 = pageCv.toDataURL('image/jpeg',0.9).split(',')[1];
+  const emuW = pageCv.width * 4572;
+  const emuH = pageCv.height * 4572;
+  const maxEmu=6096000;
+  const sc = emuW>maxEmu?maxEmu/emuW:1;
+  const fW=Math.round(emuW*sc), fH=Math.round(emuH*sc);
+
+  const docXml=`<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"
+  xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"
+  xmlns:wp="http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing"
+  xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main"
+  xmlns:pic="http://schemas.openxmlformats.org/drawingml/2006/picture">
+<w:body>
+<w:sectPr><w:pgSz w:w="11906" w:h="16838"/><w:pgMar w:top="720" w:right="720" w:bottom="720" w:left="720"/></w:sectPr>
+<w:p><w:r><w:drawing>
+<wp:inline><wp:extent cx="${fW}" cy="${fH}"/>
+<wp:docPr id="1" name="id-card"/>
+<a:graphic><a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/picture">
+<pic:pic><pic:nvPicPr><pic:cNvPr id="1" name="id-card.jpg"/><pic:cNvPicPr/></pic:nvPicPr>
+<pic:blipFill>
+<a:blip r:embed="rImg1"/>
+<a:stretch><a:fillRect/></a:stretch>
+</pic:blipFill>
+<pic:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="${fW}" cy="${fH}"/></a:xfrm>
+<a:prstGeom prst="rect"><a:avLst/></a:prstGeom></pic:spPr>
+</pic:pic></a:graphicData></a:graphic>
+</wp:inline></w:drawing></w:r></w:p>
+</w:body></w:document>`;
+
+  const zip=new JSZip();
+  zip.file('[Content_Types].xml',`<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
+<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>
+<Default Extension="xml" ContentType="application/xml"/>
+<Default Extension="jpg" ContentType="image/jpeg"/>
+<Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/>
+</Types>`);
+  zip.folder('_rels').file('.rels',`<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/>
+</Relationships>`);
+  zip.folder('word').file('document.xml', docXml);
+  zip.folder('word/media').file('image1.jpg', b64, {base64:true});
+  zip.folder('word/_rels').file('document.xml.rels',`<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+<Relationship Id="rImg1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="media/image1.jpg"/>
+</Relationships>`);
+  const blob=await zip.generateAsync({type:'blob',mimeType:'application/vnd.openxmlformats-officedocument.wordprocessingml.document'});
+  dlBlob(blob,'id-card.docx');
+}
+
+function dlBlob(blob,name){
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(blob);
+  a.download=name;
+  a.click();
+  setTimeout(()=>URL.revokeObjectURL(a.href),5000);
+}
+
+function resetAll(){
+  srcImg=null; corners=[]; aiCorners=[]; colorMode='color';
+  document.getElementById('rot').value=0;
+  document.getElementById('rot-val').textContent='0°';
+  document.getElementById('brightness').value=0;
+  document.getElementById('contrast').value=0;
+  document.getElementById('saturation').value=0;
+  ['bv','cv2','sv'].forEach(id=>document.getElementById(id).textContent='0');
+  setMode('color');
+  ['adjust-section','color-section','layout-section','export-section'].forEach(id=>{
+    document.getElementById(id).style.display='none';
+  });
+  document.getElementById('ai-status').style.display='none';
+  document.getElementById('export-btn').disabled=true;
+  document.getElementById('main-area').innerHTML=`
+    <div style="color:#bbb;font-size:13px;text-align:center;margin-top:4rem">
+      <div style="font-size:40px;margin-bottom:12px">🪪</div>
+      อัปโหลดรูปบัตรประชาชนเพื่อเริ่มต้น
+    </div>`;
+  document.getElementById('fi').value='';
+}
+</script>
+</body>
+</html>
