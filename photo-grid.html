@@ -1,0 +1,703 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>รวมรูปในหน้าเดียว</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f5f5f3; color: #1a1a18; min-height: 100vh; }
+
+  .layout { display: grid; grid-template-columns: 340px 1fr; min-height: 100vh; }
+
+  /* ── SIDEBAR ── */
+  .sidebar { background: #fff; border-right: 1px solid #e8e8e4; padding: 1.5rem 1.25rem; display: flex; flex-direction: column; gap: 1.25rem; overflow-y: auto; }
+  .logo { font-size: 18px; font-weight: 700; letter-spacing: -.02em; }
+  .logo span { color: #888; font-weight: 400; font-size: 13px; display: block; margin-top: 2px; }
+
+  .section-title { font-size: 11px; font-weight: 600; color: #999; text-transform: uppercase; letter-spacing: .06em; margin-bottom: 8px; }
+
+  /* drop zone */
+  .drop-zone { border: 1.5px dashed #ccc; border-radius: 10px; padding: 1.5rem 1rem; text-align: center; cursor: pointer; background: #fafaf8; transition: all .15s; }
+  .drop-zone:hover, .drop-zone.over { background: #eef4ff; border-color: #6a9cf8; }
+  .drop-icon { font-size: 28px; display: block; margin-bottom: 8px; }
+  .drop-title { font-size: 14px; font-weight: 500; }
+  .drop-sub { font-size: 12px; color: #999; margin-top: 3px; }
+
+  /* thumbnail strip */
+  .thumb-strip { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+  .thumb-item { position: relative; aspect-ratio: 1; border-radius: 6px; overflow: hidden; cursor: grab; border: 1.5px solid transparent; transition: border-color .12s; }
+  .thumb-item:hover { border-color: #6a9cf8; }
+  .thumb-item.dragging { opacity: .4; }
+  .thumb-item img { width: 100%; height: 100%; object-fit: cover; display: block; pointer-events: none; }
+  .thumb-remove { position: absolute; top: 3px; right: 3px; width: 18px; height: 18px; border-radius: 50%; background: rgba(0,0,0,.55); color: #fff; border: none; font-size: 11px; cursor: pointer; display: flex; align-items: center; justify-content: center; opacity: 0; transition: opacity .12s; line-height: 1; }
+  .thumb-item:hover .thumb-remove { opacity: 1; }
+  .empty-strip { font-size: 12px; color: #bbb; text-align: center; padding: 8px 0; }
+
+  /* option rows */
+  .opt-row { display: flex; gap: 8px; align-items: center; }
+  .opt-row label { font-size: 13px; color: #555; min-width: 80px; }
+  select, input[type="number"], input[type="text"] {
+    flex: 1; height: 34px; border-radius: 8px; border: 1px solid #ddd;
+    background: #fff; color: #1a1a18; padding: 0 10px; font-size: 13px; font-family: inherit;
+  }
+  select:focus, input:focus { outline: none; border-color: #6a9cf8; }
+
+  /* grid selector */
+  .grid-options { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+  .grid-opt { border: 1.5px solid #e0e0dc; border-radius: 8px; padding: 8px 4px; text-align: center; cursor: pointer; background: #fafaf8; transition: all .12s; }
+  .grid-opt:hover { border-color: #aaa; }
+  .grid-opt.active { border-color: #1a1a18; background: #1a1a18; color: #fff; }
+  .grid-opt .g-icon { font-size: 22px; display: block; margin-bottom: 3px; }
+  .grid-opt .g-label { font-size: 11px; font-weight: 500; }
+
+  /* spacing slider */
+  .slider-row { display: flex; gap: 10px; align-items: center; }
+  .slider-row input[type="range"] { flex: 1; accent-color: #1a1a18; }
+  .slider-val { font-size: 13px; font-weight: 600; min-width: 30px; text-align: right; }
+
+  /* fit mode */
+  .fit-options { display: flex; gap: 6px; }
+  .fit-opt { flex: 1; padding: 7px 4px; border: 1.5px solid #e0e0dc; border-radius: 8px; text-align: center; cursor: pointer; font-size: 12px; background: #fafaf8; transition: all .12s; }
+  .fit-opt.active { border-color: #1a1a18; background: #1a1a18; color: #fff; }
+
+  /* output format */
+  .fmt-options { display: flex; gap: 6px; }
+  .fmt-btn { flex: 1; padding: 8px 4px; border: 1.5px solid #e0e0dc; border-radius: 8px; text-align: center; cursor: pointer; font-size: 12px; font-weight: 500; background: #fafaf8; transition: all .12s; }
+  .fmt-btn.active { border-color: #1a1a18; background: #1a1a18; color: #fff; }
+
+  /* action buttons */
+  .btn-main { width: 100%; padding: 11px; border-radius: 9px; border: none; background: #1a1a18; color: #fff; font-size: 15px; font-weight: 600; cursor: pointer; transition: opacity .15s; font-family: inherit; }
+  .btn-main:hover { opacity: .82; }
+  .btn-main:disabled { opacity: .35; cursor: not-allowed; }
+  .btn-sec { width: 100%; padding: 8px; border-radius: 9px; border: 1px solid #ddd; background: transparent; color: #666; font-size: 13px; cursor: pointer; font-family: inherit; margin-top: 6px; }
+  .btn-sec:hover { background: #f5f5f3; }
+
+  /* ── PREVIEW AREA ── */
+  .preview-area { padding: 2rem; display: flex; flex-direction: column; align-items: center; gap: 1rem; background: #eee; overflow: auto; }
+  .preview-label { font-size: 12px; color: #888; }
+  #page-container { background: #fff; box-shadow: 0 4px 24px rgba(0,0,0,.12); position: relative; overflow: hidden; }
+  #page-canvas { display: block; }
+
+  .page-info { font-size: 12px; color: #999; }
+
+  @media (max-width: 700px) {
+    .layout { grid-template-columns: 1fr; }
+    .preview-area { display: none; }
+  }
+</style>
+</head>
+<body>
+<div class="layout">
+
+  <!-- ══════════════ SIDEBAR ══════════════ -->
+  <aside class="sidebar">
+    <div>
+      <div class="logo">🖼️ รวมรูปในหน้า<span>Photo Grid Maker</span></div>
+    </div>
+
+    <!-- Upload -->
+    <div>
+      <div class="section-title">1. เลือกรูปภาพ</div>
+      <div class="drop-zone" id="drop-zone" onclick="document.getElementById('file-input').click()">
+        <span class="drop-icon">📁</span>
+        <div class="drop-title">วางรูปที่นี่ หรือคลิกเลือก</div>
+        <div class="drop-sub">JPG · PNG · HEIC · WebP (เลือกได้หลายรูป)</div>
+      </div>
+      <input type="file" id="file-input" accept="image/*,.heic,.heif" multiple style="display:none">
+      <div style="margin-top:10px;">
+        <div class="thumb-strip" id="thumb-strip">
+          <div class="empty-strip" id="empty-msg" style="grid-column:1/-1;">ยังไม่มีรูป</div>
+        </div>
+        <div style="font-size:11px;color:#bbb;margin-top:6px;text-align:right;" id="count-label"></div>
+      </div>
+    </div>
+
+    <!-- Grid layout -->
+    <div>
+      <div class="section-title">2. จำนวนรูปต่อหน้า</div>
+      <div class="grid-options">
+        <div class="grid-opt active" data-n="2" onclick="setGrid(2)">
+          <span class="g-icon">⬛⬛</span><div class="g-label">2 รูป</div>
+        </div>
+        <div class="grid-opt" data-n="4" onclick="setGrid(4)">
+          <span class="g-icon">⊞</span><div class="g-label">4 รูป</div>
+        </div>
+        <div class="grid-opt" data-n="6" onclick="setGrid(6)">
+          <span class="g-icon">▦</span><div class="g-label">6 รูป</div>
+        </div>
+        <div class="grid-opt" data-n="8" onclick="setGrid(8)">
+          <span class="g-icon">⠿</span><div class="g-label">8 รูป</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Page size -->
+    <div>
+      <div class="section-title">3. ขนาดหน้า</div>
+      <div class="opt-row" style="margin-bottom:8px;">
+        <label>ขนาด</label>
+        <select id="page-size" onchange="onPageSizeChange()">
+          <option value="a4">A4 (210×297 mm)</option>
+          <option value="letter">Letter (216×279 mm)</option>
+          <option value="a3">A3 (297×420 mm)</option>
+          <option value="custom">กำหนดเอง</option>
+        </select>
+      </div>
+      <div class="opt-row" style="margin-bottom:8px;">
+        <label>แนว</label>
+        <select id="orientation" onchange="render()">
+          <option value="portrait">แนวตั้ง</option>
+          <option value="landscape">แนวนอน</option>
+        </select>
+      </div>
+      <div id="custom-size" style="display:none;">
+        <div class="opt-row" style="margin-bottom:6px;">
+          <label>กว้าง (px)</label>
+          <input type="number" id="custom-w" value="2480" oninput="render()">
+        </div>
+        <div class="opt-row">
+          <label>สูง (px)</label>
+          <input type="number" id="custom-h" value="3508" oninput="render()">
+        </div>
+      </div>
+    </div>
+
+    <!-- Spacing & fit -->
+    <div>
+      <div class="section-title">4. ระยะห่างและการตัด</div>
+      <div style="margin-bottom:10px;">
+        <div style="font-size:12px;color:#666;margin-bottom:6px;">ระยะขอบ</div>
+        <div class="slider-row">
+          <input type="range" id="margin-slider" min="0" max="80" value="20" oninput="document.getElementById('margin-val').textContent=this.value+'px';render()">
+          <span class="slider-val" id="margin-val">20px</span>
+        </div>
+      </div>
+      <div>
+        <div style="font-size:12px;color:#666;margin-bottom:6px;">ช่องว่างระหว่างรูป</div>
+        <div class="slider-row">
+          <input type="range" id="gap-slider" min="0" max="60" value="8" oninput="document.getElementById('gap-val').textContent=this.value+'px';render()">
+          <span class="slider-val" id="gap-val">8px</span>
+        </div>
+      </div>
+      <div style="margin-top:10px;">
+        <div style="font-size:12px;color:#666;margin-bottom:6px;">วิธีวางรูป</div>
+        <div class="fit-options">
+          <div class="fit-opt active" data-fit="cover" onclick="setFit('cover')">ครอบเต็ม</div>
+          <div class="fit-opt" data-fit="contain" onclick="setFit('contain')">เห็นทั้งรูป</div>
+          <div class="fit-opt" data-fit="stretch" onclick="setFit('stretch')">ยืด</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Background color -->
+    <div>
+      <div class="section-title">5. สีพื้นหลัง</div>
+      <div class="opt-row">
+        <label>สี</label>
+        <input type="color" id="bg-color" value="#ffffff" oninput="render()" style="flex:none;width:40px;height:34px;border-radius:8px;border:1px solid #ddd;cursor:pointer;padding:2px;">
+        <select id="bg-preset" onchange="applyBgPreset()" style="flex:1;margin-left:8px;">
+          <option value="#ffffff">ขาว</option>
+          <option value="#000000">ดำ</option>
+          <option value="#f5f5f3">เทาอ่อน</option>
+          <option value="#1a1a18">เทาเข้ม</option>
+          <option value="custom">กำหนดเอง</option>
+        </select>
+      </div>
+    </div>
+
+    <!-- Output format -->
+    <div>
+      <div class="section-title">6. บันทึกเป็น</div>
+      <div class="fmt-options">
+        <div class="fmt-btn active" data-fmt="jpeg" onclick="setFmt('jpeg')">JPG</div>
+        <div class="fmt-btn" data-fmt="png" onclick="setFmt('png')">PNG</div>
+        <div class="fmt-btn" data-fmt="docx" onclick="setFmt('docx')">Word</div>
+      </div>
+      <div id="jpg-quality-row" style="margin-top:10px;">
+        <div style="font-size:12px;color:#666;margin-bottom:6px;">คุณภาพ JPG</div>
+        <div class="slider-row">
+          <input type="range" id="jpg-q" min="50" max="100" value="92" oninput="document.getElementById('jpg-q-val').textContent=this.value+'%'">
+          <span class="slider-val" id="jpg-q-val">92%</span>
+        </div>
+      </div>
+      <div id="page-note" style="display:none;font-size:11px;color:#999;margin-top:6px;">
+        💡 มีหลายหน้า → บันทึกเป็น ZIP ที่มีทุกหน้า
+      </div>
+    </div>
+
+    <!-- Export -->
+    <div style="margin-top:auto;">
+      <button class="btn-main" id="export-btn" onclick="exportFile()" disabled>⬇️ บันทึกไฟล์</button>
+      <button class="btn-sec" onclick="clearAll()">🗑️ ล้างทั้งหมด</button>
+    </div>
+
+    <p style="font-size:11px;color:#ccc;text-align:center;">ประมวลผลในเบราว์เซอร์ ไม่มีการอัปโหลดไปเซิร์ฟเวอร์</p>
+  </aside>
+
+  <!-- ══════════════ PREVIEW ══════════════ -->
+  <main class="preview-area">
+    <div class="preview-label">ตัวอย่างหน้า <span id="page-nav"></span></div>
+    <div id="page-container">
+      <canvas id="page-canvas"></canvas>
+    </div>
+    <div class="page-info" id="page-info">— ยังไม่มีรูป —</div>
+    <div style="display:flex;gap:10px;" id="page-nav-btns" style="display:none;">
+      <button class="btn-sec" id="btn-prev" onclick="prevPage()" style="width:80px;">◀ ก่อน</button>
+      <button class="btn-sec" id="btn-next" onclick="nextPage()" style="width:80px;">ถัดไป ▶</button>
+    </div>
+  </main>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<script>
+/* ─────────────────────────────────────────
+   STATE
+───────────────────────────────────────── */
+let images = [];       // { file, dataUrl, img } ordered list
+let gridN = 2;
+let fitMode = 'cover';
+let outFmt = 'jpeg';
+let currentPage = 0;
+let pageCanvases = []; // one canvas per page (rendered)
+let dragSrcIdx = null;
+
+/* ─────────────────────────────────────────
+   PAGE SIZES (in px at 150 DPI for preview, 300 DPI for export)
+───────────────────────────────────────── */
+const PAGE_SIZES_MM = { a4: [210,297], letter: [215.9,279.4], a3: [297,420] };
+function mmToPx(mm, dpi) { return Math.round(mm / 25.4 * dpi); }
+
+function getPagePx(dpi = 150) {
+  const sz = document.getElementById('page-size').value;
+  const ori = document.getElementById('orientation').value;
+  let w, h;
+  if (sz === 'custom') {
+    const cw = parseInt(document.getElementById('custom-w').value) || 2480;
+    const ch = parseInt(document.getElementById('custom-h').value) || 3508;
+    w = cw; h = ch;
+    // custom values are assumed 300dpi; scale for preview
+    if (dpi !== 300) { const s = dpi/300; w = Math.round(w*s); h = Math.round(h*s); }
+  } else {
+    const [mw, mh] = PAGE_SIZES_MM[sz] || [210,297];
+    w = mmToPx(mw, dpi); h = mmToPx(mh, dpi);
+  }
+  if (ori === 'landscape') [w, h] = [h, w];
+  return { w, h };
+}
+
+/* ─────────────────────────────────────────
+   GRID LAYOUT HELPERS
+───────────────────────────────────────── */
+function gridColsRows(n) {
+  // 2→2×1, 4→2×2, 6→2×3, 8→2×4
+  const cols = 2;
+  const rows = n / 2;
+  return { cols, rows };
+}
+
+function computeCells(pw, ph, margin, gap, cols, rows) {
+  const innerW = pw - margin * 2 - gap * (cols - 1);
+  const innerH = ph - margin * 2 - gap * (rows - 1);
+  const cellW = Math.floor(innerW / cols);
+  const cellH = Math.floor(innerH / rows);
+  const cells = [];
+  for (let r = 0; r < rows; r++) {
+    for (let c = 0; c < cols; c++) {
+      cells.push({
+        x: margin + c * (cellW + gap),
+        y: margin + r * (cellH + gap),
+        w: cellW, h: cellH
+      });
+    }
+  }
+  return cells;
+}
+
+/* ─────────────────────────────────────────
+   DRAW ONE PAGE onto a canvas
+───────────────────────────────────────── */
+function drawPage(canvas, pageImages, dpi) {
+  const { w, h } = getPagePx(dpi);
+  const scale = dpi / 150;
+  const margin = Math.round(parseInt(document.getElementById('margin-slider').value) * scale);
+  const gap = Math.round(parseInt(document.getElementById('gap-slider').value) * scale);
+  const { cols, rows } = gridColsRows(gridN);
+  const cells = computeCells(w, h, margin, gap, cols, rows);
+  const bg = document.getElementById('bg-color').value;
+
+  canvas.width = w;
+  canvas.height = h;
+  const ctx = canvas.getContext('2d');
+  ctx.fillStyle = bg;
+  ctx.fillRect(0, 0, w, h);
+
+  pageImages.forEach((item, i) => {
+    if (!item || !cells[i]) return;
+    const cell = cells[i];
+    const img = item.img;
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(cell.x, cell.y, cell.w, cell.h);
+    ctx.clip();
+    if (fitMode === 'stretch') {
+      ctx.drawImage(img, cell.x, cell.y, cell.w, cell.h);
+    } else if (fitMode === 'contain') {
+      const scale2 = Math.min(cell.w / img.naturalWidth, cell.h / img.naturalHeight);
+      const dw = img.naturalWidth * scale2, dh = img.naturalHeight * scale2;
+      ctx.drawImage(img, cell.x + (cell.w - dw) / 2, cell.y + (cell.h - dh) / 2, dw, dh);
+    } else { // cover
+      const scale2 = Math.max(cell.w / img.naturalWidth, cell.h / img.naturalHeight);
+      const dw = img.naturalWidth * scale2, dh = img.naturalHeight * scale2;
+      ctx.drawImage(img, cell.x + (cell.w - dw) / 2, cell.y + (cell.h - dh) / 2, dw, dh);
+    }
+    ctx.restore();
+  });
+}
+
+/* ─────────────────────────────────────────
+   RENDER ALL PAGES (preview)
+───────────────────────────────────────── */
+function render() {
+  if (images.length === 0) {
+    const cv = document.getElementById('page-canvas');
+    cv.width = 400; cv.height = 566;
+    const ctx = cv.getContext('2d');
+    ctx.fillStyle = '#fff';
+    ctx.fillRect(0, 0, 400, 566);
+    ctx.fillStyle = '#ccc';
+    ctx.font = '14px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('ยังไม่มีรูป', 200, 283);
+    document.getElementById('page-info').textContent = '— ยังไม่มีรูป —';
+    document.getElementById('page-nav-btns').style.display = 'none';
+    document.getElementById('export-btn').disabled = true;
+    pageCanvases = [];
+    return;
+  }
+
+  // split images into pages of gridN
+  const pages = [];
+  for (let i = 0; i < images.length; i += gridN) {
+    pages.push(images.slice(i, i + gridN));
+  }
+  pageCanvases = pages.map(pg => {
+    const cv = document.createElement('canvas');
+    drawPage(cv, pg, 150);
+    return cv;
+  });
+
+  if (currentPage >= pages.length) currentPage = pages.length - 1;
+  if (currentPage < 0) currentPage = 0;
+
+  // show current page
+  const cv = document.getElementById('page-canvas');
+  const src = pageCanvases[currentPage];
+  cv.width = src.width; cv.height = src.height;
+  cv.getContext('2d').drawImage(src, 0, 0);
+
+  // fit in preview
+  const maxW = Math.min(window.innerWidth - 380, 700);
+  const scaleP = Math.min(1, maxW / src.width);
+  document.getElementById('page-container').style.width = Math.round(src.width * scaleP) + 'px';
+  document.getElementById('page-container').style.height = Math.round(src.height * scaleP) + 'px';
+  cv.style.width = '100%';
+  cv.style.height = '100%';
+
+  document.getElementById('page-info').textContent = `หน้า ${currentPage+1} / ${pages.length} · ${src.width}×${src.height} px`;
+  document.getElementById('page-nav').textContent = `${currentPage+1} / ${pages.length}`;
+
+  const multiPage = pages.length > 1;
+  document.getElementById('page-nav-btns').style.display = multiPage ? 'flex' : 'none';
+  document.getElementById('btn-prev').disabled = currentPage === 0;
+  document.getElementById('btn-next').disabled = currentPage === pages.length - 1;
+  document.getElementById('page-note').style.display = multiPage ? 'block' : 'none';
+  document.getElementById('export-btn').disabled = false;
+
+  document.getElementById('jpg-quality-row').style.display = outFmt === 'jpeg' ? 'block' : 'none';
+}
+
+function prevPage() { currentPage--; render(); }
+function nextPage() { currentPage++; render(); }
+
+/* ─────────────────────────────────────────
+   FILE LOADING
+───────────────────────────────────────── */
+function loadFile(file) {
+  return new Promise(resolve => {
+    const reader = new FileReader();
+    reader.onload = e => {
+      const img = new Image();
+      img.onload = () => resolve({ file, dataUrl: e.target.result, img });
+      img.src = e.target.result;
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
+async function addFiles(files) {
+  const supported = Array.from(files).filter(f => f.type.startsWith('image/') || /\.(heic|heif)$/i.test(f.name));
+  const loaded = await Promise.all(supported.map(loadFile));
+  images = [...images, ...loaded];
+  rebuildThumbs();
+  render();
+}
+
+/* ─────────────────────────────────────────
+   THUMBNAIL STRIP (drag to reorder)
+───────────────────────────────────────── */
+function rebuildThumbs() {
+  const strip = document.getElementById('thumb-strip');
+  const emptyMsg = document.getElementById('empty-msg');
+  strip.innerHTML = '';
+  if (images.length === 0) {
+    strip.appendChild(emptyMsg);
+    document.getElementById('count-label').textContent = '';
+    return;
+  }
+  document.getElementById('count-label').textContent = `${images.length} รูป`;
+  images.forEach((item, i) => {
+    const div = document.createElement('div');
+    div.className = 'thumb-item';
+    div.draggable = true;
+    div.dataset.i = i;
+    const img = document.createElement('img');
+    img.src = item.dataUrl;
+    const btn = document.createElement('button');
+    btn.className = 'thumb-remove';
+    btn.textContent = '×';
+    btn.onclick = e => { e.stopPropagation(); images.splice(i, 1); rebuildThumbs(); render(); };
+    div.appendChild(img);
+    div.appendChild(btn);
+    // drag reorder
+    div.addEventListener('dragstart', () => { dragSrcIdx = i; div.classList.add('dragging'); });
+    div.addEventListener('dragend', () => div.classList.remove('dragging'));
+    div.addEventListener('dragover', e => e.preventDefault());
+    div.addEventListener('drop', e => {
+      e.preventDefault();
+      if (dragSrcIdx === null || dragSrcIdx === i) return;
+      const moved = images.splice(dragSrcIdx, 1)[0];
+      images.splice(i, 0, moved);
+      dragSrcIdx = null;
+      rebuildThumbs(); render();
+    });
+    strip.appendChild(div);
+  });
+}
+
+/* ─────────────────────────────────────────
+   DROP ZONE
+───────────────────────────────────────── */
+const dz = document.getElementById('drop-zone');
+dz.addEventListener('dragover', e => { e.preventDefault(); dz.classList.add('over'); });
+dz.addEventListener('dragleave', () => dz.classList.remove('over'));
+dz.addEventListener('drop', e => { e.preventDefault(); dz.classList.remove('over'); addFiles(e.dataTransfer.files); });
+document.getElementById('file-input').addEventListener('change', e => addFiles(e.target.files));
+
+/* ─────────────────────────────────────────
+   SETTINGS HELPERS
+───────────────────────────────────────── */
+function setGrid(n) {
+  gridN = n;
+  document.querySelectorAll('.grid-opt').forEach(el => el.classList.toggle('active', +el.dataset.n === n));
+  render();
+}
+function setFit(f) {
+  fitMode = f;
+  document.querySelectorAll('.fit-opt').forEach(el => el.classList.toggle('active', el.dataset.fit === f));
+  render();
+}
+function setFmt(f) {
+  outFmt = f;
+  document.querySelectorAll('.fmt-btn').forEach(el => el.classList.toggle('active', el.dataset.fmt === f));
+  document.getElementById('jpg-quality-row').style.display = f === 'jpeg' ? 'block' : 'none';
+  render();
+}
+function onPageSizeChange() {
+  document.getElementById('custom-size').style.display =
+    document.getElementById('page-size').value === 'custom' ? 'block' : 'none';
+  render();
+}
+function applyBgPreset() {
+  const v = document.getElementById('bg-preset').value;
+  if (v !== 'custom') { document.getElementById('bg-color').value = v; render(); }
+}
+function clearAll() {
+  images = [];
+  rebuildThumbs();
+  currentPage = 0;
+  render();
+}
+
+/* ─────────────────────────────────────────
+   EXPORT
+───────────────────────────────────────── */
+async function exportFile() {
+  if (images.length === 0) return;
+  const btn = document.getElementById('export-btn');
+  btn.disabled = true;
+  btn.textContent = '⏳ กำลังสร้างไฟล์...';
+
+  try {
+    const pages = [];
+    for (let i = 0; i < images.length; i += gridN) pages.push(images.slice(i, i + gridN));
+
+    if (outFmt === 'docx') {
+      await exportDocx(pages);
+    } else {
+      const mimeType = outFmt === 'png' ? 'image/png' : 'image/jpeg';
+      const quality = parseInt(document.getElementById('jpg-q').value) / 100;
+      const ext = outFmt === 'png' ? 'png' : 'jpg';
+
+      if (pages.length === 1) {
+        // single page → direct download
+        const cv = document.createElement('canvas');
+        drawPage(cv, pages[0], 300);
+        cv.toBlob(blob => {
+          dlBlob(blob, `photo-grid.${ext}`);
+        }, mimeType, quality);
+      } else {
+        // multiple pages → ZIP
+        const zip = new JSZip();
+        for (let p = 0; p < pages.length; p++) {
+          const cv = document.createElement('canvas');
+          drawPage(cv, pages[p], 300);
+          const dataUrl = cv.toDataURL(mimeType, quality);
+          const b64 = dataUrl.split(',')[1];
+          zip.file(`page-${String(p+1).padStart(2,'0')}.${ext}`, b64, { base64: true });
+        }
+        const zipBlob = await zip.generateAsync({ type: 'blob' });
+        dlBlob(zipBlob, `photo-grid.zip`);
+      }
+    }
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '⬇️ บันทึกไฟล์';
+  }
+}
+
+function dlBlob(blob, name) {
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = name;
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+}
+
+/* ─────────────────────────────────────────
+   DOCX EXPORT (manual OOXML + JSZip)
+   — embeds each page as a JPEG image in a Word table layout
+───────────────────────────────────────── */
+async function exportDocx(pages) {
+  const zip = new JSZip();
+  const quality = 0.88;
+  const rels = [];
+  const bodyParts = [];
+
+  for (let p = 0; p < pages.length; p++) {
+    const cv = document.createElement('canvas');
+    drawPage(cv, pages[p], 200); // 200dpi for docx (balance size/quality)
+    const dataUrl = cv.toDataURL('image/jpeg', quality);
+    const b64 = dataUrl.split(',')[1];
+    const imgName = `image${p+1}.jpg`;
+    zip.folder('word/media').file(imgName, b64, { base64: true });
+
+    const rId = `rImg${p+1}`;
+    rels.push(`<Relationship Id="${rId}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="media/${imgName}"/>`);
+
+    // EMU: 1 px @200dpi → 914400/200 = 4572 EMU
+    const emuW = cv.width * 4572;
+    const emuH = cv.height * 4572;
+    // clamp to ~17cm wide (A4 usable width ~170mm = 6400000 EMU)
+    const maxEmu = 6096000;
+    const scaleE = emuW > maxEmu ? maxEmu / emuW : 1;
+    const fW = Math.round(emuW * scaleE);
+    const fH = Math.round(emuH * scaleE);
+
+    const pageBreak = p > 0 ? '<w:br w:type="page"/>' : '';
+    bodyParts.push(`
+      <w:p>
+        <w:r>${pageBreak ? `<w:br w:type="page"/>` : ''}
+          <w:rPr/>
+          <w:drawing>
+            <wp:inline xmlns:wp="http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing">
+              <wp:extent cx="${fW}" cy="${fH}"/>
+              <wp:docPr id="${p+1}" name="Page${p+1}"/>
+              <a:graphic xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main">
+                <a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/picture">
+                  <pic:pic xmlns:pic="http://schemas.openxmlformats.org/drawingml/2006/picture">
+                    <pic:nvPicPr><pic:cNvPr id="${p+1}" name="${imgName}"/><pic:cNvPicPr/></pic:nvPicPr>
+                    <pic:blipFill>
+                      <a:blip r:embed="${rId}" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"/>
+                      <a:stretch><a:fillRect/></a:stretch>
+                    </pic:blipFill>
+                    <pic:spPr>
+                      <a:xfrm><a:off x="0" y="0"/><a:ext cx="${fW}" cy="${fH}"/></a:xfrm>
+                      <a:prstGeom prst="rect"><a:avLst/></a:prstGeom>
+                    </pic:spPr>
+                  </pic:pic>
+                </a:graphicData>
+              </a:graphic>
+            </wp:inline>
+          </w:drawing>
+        </w:r>
+      </w:p>`);
+  }
+
+  const documentXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"
+            xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"
+            xmlns:wp="http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing"
+            xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main"
+            xmlns:pic="http://schemas.openxmlformats.org/drawingml/2006/picture">
+  <w:body>
+    <w:sectPr>
+      <w:pgSz w:w="11906" w:h="16838"/>
+      <w:pgMar w:top="720" w:right="720" w:bottom="720" w:left="720"/>
+    </w:sectPr>
+    ${bodyParts.join('\n')}
+  </w:body>
+</w:document>`;
+
+  const relsXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+  <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/>
+  ${rels.join('\n  ')}
+</Relationships>`;
+
+  const stylesXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<w:styles xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">
+  <w:docDefaults><w:rPrDefault><w:rPr><w:sz w:val="20"/></w:rPr></w:rPrDefault></w:docDefaults>
+</w:styles>`;
+
+  const contentTypesXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
+  <Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>
+  <Default Extension="xml" ContentType="application/xml"/>
+  <Default Extension="jpg" ContentType="image/jpeg"/>
+  <Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/>
+  <Override PartName="/word/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.styles+xml"/>
+</Types>`;
+
+  const rootRels = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+  <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/>
+</Relationships>`;
+
+  zip.file('[Content_Types].xml', contentTypesXml);
+  zip.folder('_rels').file('.rels', rootRels);
+  zip.folder('word').file('document.xml', documentXml);
+  zip.folder('word').file('styles.xml', stylesXml);
+  zip.folder('word/_rels').file('document.xml.rels', relsXml);
+
+  const blob = await zip.generateAsync({ type: 'blob', mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' });
+  dlBlob(blob, 'photo-grid.docx');
+}
+
+/* ─────────────────────────────────────────
+   INIT
+───────────────────────────────────────── */
+render();
+</script>
+</body>
+</html>
